@@ -1,48 +1,23 @@
 #pragma once
 #include <vector>
 #include <algorithm>
+#include <iostream>
 
 namespace SimpleBVH {
-
-struct Vec3 { float x, y, z; };
-
-struct AABB {
-  union {
-    struct { Vec3 min, max; };
-    float aabb[2][3];
-  };
-
-  inline AABB& operator+=(const AABB& rhs) {
-    min.x = std::min(min.x, rhs.min.x);
-    min.y = std::min(min.y, rhs.min.y);
-    min.z = std::min(min.z, rhs.min.z);
-    max.x = std::max(max.x, rhs.max.x);
-    max.y = std::max(max.y, rhs.max.y);
-    max.z = std::max(max.z, rhs.max.z);
-    return *this;
-  }
-
-  inline void center(float& x, float& y, float& z) const {
-    x = (max.x - min.x) * 0.5f;
-    y = (max.y - min.y) * 0.5f;
-    z = (max.z - min.z) * 0.5f;
-  }
-};
 
 template<class AABB_T>
 struct BVHNode {
   AABB_T aabb;
-  // todo: union bitField
-  uint32_t children[2];
-  uint32_t leaf_index;
-  uint32_t leaf_size;
+  union {
+    uint32_t children[2];
+    struct { uint32_t leaf_index, leaf_size; };
+  };
   bool is_leaf;
 };
 
-template<class AABB_T = AABB>
-class _BVH {
+template<class AABB_T>
+class BVH {
   private:
-    enum SORT_AXIS { X, Y, Z };
     struct BVHSort {
       float x, y, z;
       AABB_T aabb;
@@ -52,6 +27,7 @@ class _BVH {
       static bool sort_y(const BVHSort& lhs, const BVHSort& rhs) { return lhs.y < rhs.y; }
       static bool sort_z(const BVHSort& lhs, const BVHSort& rhs) { return lhs.z < rhs.z; }
     };
+    enum SORT_AXIS { X, Y, Z };
     uint32_t build(
         typename std::vector<BVHSort>::iterator begin,
         typename std::vector<BVHSort>::iterator end,
@@ -97,7 +73,7 @@ class _BVH {
   public:
     std::vector< BVHNode<AABB_T> > nodes;
     std::vector<uint32_t> indexes;
-    void build(const std::vector<AABB>& boxes, uint32_t leaf_size) {
+    void buildBVH(const std::vector<AABB_T>& boxes, uint32_t leaf_size) {
       std::vector<BVHSort> sn;
       for(uint32_t i = 0; i < boxes.size(); i++) {
         sn.push_back(BVHSort(boxes[i], i));
@@ -106,8 +82,7 @@ class _BVH {
       nodes.reserve(boxes.size() * 2);
       indexes.clear();
       indexes.reserve(boxes.size());
-      build(sn.begin(), sn.end(), X);
+      build(sn.begin(), sn.end(), leaf_size, X);
     }
 };
-typedef _BVH<> BVH;
 }
